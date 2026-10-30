@@ -35,6 +35,11 @@ on:
         type: boolean
         required: false
         default: true
+      drop_asd:
+        description: "Додатково ASD=n (asd взагалі не збирається; libasc стає obj-y)"
+        type: boolean
+        required: false
+        default: false
       dry_run:
         description: "Тільки підготовка дерева + cherry-pick, без компіляції"
         type: boolean
@@ -182,6 +187,14 @@ jobs:
           git apply --verbose "$GITHUB_WORKSPACE/patches/optional/no-asd-ark.patch"
           git --no-pager diff --stat
 
+      - name: Drop ASD entirely
+        if: ${{ inputs.no_security && inputs.drop_asd }}
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/scripts/drop-asd.py" "$MERLIN_DIR"
+          cd "$MERLIN_DIR"
+          git --no-pager diff --stat
+
       - name: Embed build info
         if: ${{ inputs.dry_run != true }}
         env:
@@ -268,7 +281,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.dry_run != true }}
         with:
-          name: RT-BE92U-${{ inputs.ref }}${{ inputs.no_security && '-nosec' || '' }}
+          name: RT-BE92U-${{ inputs.ref }}${{ inputs.no_security && '-nosec' || '' }}${{ inputs.drop_asd && '-noasd' || '' }}
           path: ${{ env.WORK_DIR }}/artifacts/*
           if-no-files-found: error
           retention-days: 14

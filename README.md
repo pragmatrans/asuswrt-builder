@@ -115,6 +115,10 @@ Controlled by the `no_security` input (default `true`), applied by a separate st
 image stays reproducible from the same workflow (`no_security=false`) for comparison. The
 AiProtection tab remains in the web UI but stays empty — expected.
 
+The `drop_asd` input (default `false`) additionally sets `ASD=n` and makes `libasc` unconditional
+(`obj-y += libasc` in `router/Makefile`), so the `asd` daemon is not even compiled — done by
+`scripts/drop-asd.py`. Image contents are the same either way.
+
 ## What is not here yet
 
 - **kernel fixes** for the Brahma-B53 errata (timers, `CNTP_TVAL` bypass) — deliberately out of this
