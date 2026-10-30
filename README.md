@@ -98,15 +98,22 @@ cherry-pick and blob import (our changes on top) and fails loudly if a patch doe
 
 ### Variant without `asd` and Ark
 
-`patches/optional/no-asd-ark.patch` — two lines in the `RT-BE92U` block of `target.mak`:
-`ASD=n` instead of `ASD=y`, `GTBOOSTER=n` instead of `GTBOOSTER=y`. Drops from the image:
-`asd` + `libasd.so`, `ark.ko`/`aqua.ko`/`ark.xdb` (~5 MB), `ark_service`, `rsasign_sigArk_check`
-and the Ark hooks in `sched_daemon`.
+`patches/optional/no-asd-ark.patch`, four edits:
 
-Controlled by the `no_security` input (default `true`). It is applied by a separate step and is
-**not** part of `patches/*.patch`, so the stock image stays reproducible from the same workflow
-(`no_security=false`) for comparison. The AiProtection tab remains in the web UI but stays empty —
-expected.
+- `target.mak` (`RT-BE92U` block): `GTBOOSTER=n` instead of `GTBOOSTER=y` — the Ark engine is not
+  built (`ark.ko`, `aqua.ko`, `ark.xdb`, `ark_service`, `arkctl`, `arklogd`, `-lark_db`).
+- `router/Makefile`: `asd-install` becomes a no-op — the `asd` daemon and `libasd.so` **do not ship**.
+  `ASD=y` stays on purpose: `RTCONFIG_LIBASC` (`libasc.so`) depends on it, and `rc` links `-lasc`;
+  without it `libcreduction` fails with "Missing 32-bit libraries: libasc.so".
+- `shared/Makefile`: the prebuilt `ark_utils.o` is linked regardless of `GTBOOSTER`, because
+  `disable_ark_features()` and `ark_disable_hw_accel()` are called from `misc.c`, `rc` and `httpd`
+  without any `#ifdef`.
+- `rc/Makefile` + `rc/ark_stub.c`: `IS_ARK_IAM() → 0` stub, because the prebuilt `amas_lib.o`
+  references that symbol while its definition lives in `ark.o`.
+
+Controlled by the `no_security` input (default `true`), applied by a separate step, so the stock
+image stays reproducible from the same workflow (`no_security=false`) for comparison. The
+AiProtection tab remains in the web UI but stays empty — expected.
 
 ## What is not here yet
 

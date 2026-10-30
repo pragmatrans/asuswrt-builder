@@ -78,14 +78,21 @@ cherry-pick і блобів (наші зміни — зверху), і пада�
 
 ### Варіант без `asd` і Ark
 
-`patches/optional/no-asd-ark.patch` — два рядки в блоці `RT-BE92U` (`target.mak`):
-`ASD=n` замість `ASD=y` і `GTBOOSTER=n` замість `GTBOOSTER=y`. Прибирає з образу
-`asd` + `libasd.so`, `ark.ko`/`aqua.ko`/`ark.xdb` (~5 МБ), `ark_service`, `rsasign_sigArk_check`
-і хуки Ark у `sched_daemon`.
+`patches/optional/no-asd-ark.patch`, чотири правки:
 
-Вмикається полем `no_security` (типово `true`). Накладається окремим кроком і **не** потрапляє
-в `patches/*.patch`, щоб стоковий образ можна було зібрати тим самим workflow (`no_security=false`)
-для порівняння. У веб-UI вкладка AiProtection лишиться, але буде порожньою — це очікувано.
+- `target.mak` (блок `RT-BE92U`): `GTBOOSTER=n` замість `GTBOOSTER=y` — движок Ark не збирається
+  (`ark.ko`, `aqua.ko`, `ark.xdb`, `ark_service`, `arkctl`, `arklogd`, `-lark_db`).
+- `router/Makefile`: `asd-install` стає заглушкою — демон `asd` і `libasd.so` **не потрапляють
+  в образ**. Сам `ASD=y` лишаємо: від нього залежить `RTCONFIG_LIBASC` (`libasc.so`), яку `rc`
+  лінкує через `-lasc`; без неї `libcreduction` падає з «Missing 32-bit libraries: libasc.so».
+- `shared/Makefile`: `ark_utils.o` (prebuilt) лінкується незалежно від `GTBOOSTER`, бо
+  `disable_ark_features()`, `ark_disable_hw_accel()` кличуть `misc.c`, `rc` і `httpd` без `#ifdef`.
+- `rc/Makefile` + `rc/ark_stub.c`: заглушка `IS_ARK_IAM() → 0`, бо prebuilt `amas_lib.o`
+  кличе цей символ, а визначення живе в `ark.o`.
+
+Вмикається полем `no_security` (типово `true`) окремим кроком, тому стоковий образ можна
+зібрати тим самим workflow (`no_security=false`) для порівняння. Вкладка AiProtection у веб-UI
+лишиться, але буде порожньою — це очікувано.
 
 ## Чого тут ще немає
 
