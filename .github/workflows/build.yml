@@ -40,7 +40,6 @@ permissions:
   contents: read
 
 env:
-  MERLIN_DIR: /mnt/build/merlin
   SDK_DIR: release/src-rt-5.04behnd.4916
   IMAGE: ghcr.io/${{ github.repository }}:4916-gcc13.2
 
@@ -62,8 +61,26 @@ jobs:
           sudo apt-get clean || true
           sudo rm -rf /var/lib/apt/lists/* /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
           docker system prune -af --volumes || true
-          echo "--- /mnt ---"
-          df -h /mnt || true
+          echo "--- місце ---"
+          df -h / /mnt 2>/dev/null || df -h /
+
+      # /mnt на раннері належить root і НЕ доступний для запису (перший прогін упав саме тут:
+      # "mkdir: cannot create directory '/mnt/build': Permission denied"). Тому: спробувати
+      # взяти /mnt через sudo (там більше місця), інакше — просто тека в $RUNNER_TEMP.
+      - name: Prepare work dir
+        run: |
+          set -euo pipefail
+          if sudo -n mkdir -p /mnt/build 2>/dev/null && sudo -n chown -R "$(id -u):$(id -g)" /mnt/build 2>/dev/null; then
+            WORK=/mnt/build
+            echo "робоча тека: /mnt (більший диск)"
+          else
+            WORK="$RUNNER_TEMP/build"
+            mkdir -p "$WORK"
+            echo "робоча тека: \$RUNNER_TEMP/build (до /mnt немає доступу)"
+          fi
+          df -h "$WORK"
+          echo "WORK_DIR=$WORK" >> "$GITHUB_ENV"
+          echo "MERLIN_DIR=$WORK/merlin" >> "$GITHUB_ENV"
 
       - name: Clone Merlin tree
         env:
@@ -175,7 +192,7 @@ jobs:
             -e KBUILD_BUILD_HOST="$BUILD_HOST" \
             -e LINUX_COMPILE_BY="$BUILD_USER" \
             -e LINUX_COMPILE_HOST="$BUILD_HOST" \
-            -v /mnt/build:/build \
+            -v "$WORK_DIR:/build" \
             -w /build/merlin \
             "$IMAGE" \
             /bin/bash -lc "
@@ -207,17 +224,17 @@ jobs:
             echo "образу немає — дивись лог компіляції"; exit 1
           fi
           ls -lh "${files[@]}"
-          mkdir -p /mnt/artifacts
+          mkdir -p "$WORK_DIR/artifacts"
           for f in "${files[@]}"; do
-            cp -v "$f" /mnt/artifacts/
-            md5sum "$f" | sed 's#.*/##' > "/mnt/artifacts/$(basename "$f").md5"
+            cp -v "$f" "$WORK_DIR/artifacts/"
+            md5sum "$f" | sed 's#.*/##' > "$WORK_DIR/artifacts/$(basename "$f").md5"
           done
 
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.dry_run != true }}
         with:
           name: RT-BE92U-${{ inputs.ref }}
-          path: /mnt/artifacts/*
+          path: ${{ env.WORK_DIR }}/artifacts/*
           if-no-files-found: error
           retention-days: 14
 
