@@ -14,3 +14,18 @@
  		NFS=n SNMPD=y TOR=y UPNPIGD2=y NANO=y NTPD=y IPSET=y VPN_FUSION_MERLIN=y
  
  export HND-96764_BASE := HND_ROUTER=y HND_ROUTER_BE_4916=y PROFILE="96764GW_WL23D2D1GA_WLMLO" SW_HW_AUTH=y AMAS=y UTF8_SSID=y ETHOBD=y DWB=y CONNDIAG=y SAMBA3="3.6.x" WL_SCHED_V3=y UBI=y UBIFS=y PSISTLOG=y CABLEDIAG=y
+--- a/release/src/router/shared/Makefile
++++ b/release/src/router/shared/Makefile
+@@ -238,7 +238,11 @@
+ ifeq ($(RTCONFIG_HNS),y)
+ OBJS += hns_utils.o
+ endif
+-ifeq ($(RTCONFIG_GTBOOSTER),y)
++# ark_utils.o (prebuilt для закритих моделей) містить disable_ark_features(),
++# ark_disable_hw_accel() та інші ark_*-функції, які кличуть misc.c, rc і httpd
++# БЕЗ #ifdef RTCONFIG_GTBOOSTER. Тому тримаємо його в лінку незалежно від флага,
++# інакше на GTBOOSTER=n libshared.so не лінкується: undefined reference.
++ifneq ($(wildcard ark_utils.c prebuild/ark_utils.o),)
+ OBJS += $(if $(wildcard ark_utils.c),ark_utils.o,prebuild/ark_utils.o)
+ endif
+ ifeq ($(RTCONFIG_MULTILAN_CFG),y)
