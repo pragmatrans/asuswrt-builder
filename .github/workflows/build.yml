@@ -30,6 +30,11 @@ on:
         description: "Merge-коміт, з якого підтягнути prebuilt-блоби (порожньо = не робити)"
         required: false
         default: ""
+      no_security:
+        description: "Прибрати asd + Ark (ASD=n GTBOOSTER=n) — патч patches/optional/no-asd-ark.patch"
+        type: boolean
+        required: false
+        default: true
       dry_run:
         description: "Тільки підготовка дерева + cherry-pick, без компіляції"
         type: boolean
@@ -167,6 +172,16 @@ jobs:
           done
           git --no-pager diff --stat
 
+      # Варіант без телеметрії Асуса: asd + Ark. Окремий патч, щоб стоковий образ лишався
+      # доступним для порівняння — саме на ньому видно, чи щось зламалось через SDK, а не через нас.
+      - name: Disable asd + Ark
+        if: ${{ inputs.no_security }}
+        run: |
+          set -euo pipefail
+          cd "$MERLIN_DIR"
+          git apply --verbose "$GITHUB_WORKSPACE/patches/optional/no-asd-ark.patch"
+          git --no-pager diff --stat
+
       - name: Embed build info
         if: ${{ inputs.dry_run != true }}
         env:
@@ -253,7 +268,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.dry_run != true }}
         with:
-          name: RT-BE92U-${{ inputs.ref }}
+          name: RT-BE92U-${{ inputs.ref }}${{ inputs.no_security && '-nosec' || '' }}
           path: ${{ env.WORK_DIR }}/artifacts/*
           if-no-files-found: error
           retention-days: 14

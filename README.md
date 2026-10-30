@@ -96,6 +96,18 @@ makes `get_syslog_fname()`/`get_logfile_path()` (`shared/misc.c`) return `/jffs`
 The `Apply patches` step in `build.yml` applies everything under `patches/*.patch` **after**
 cherry-pick and blob import (our changes on top) and fails loudly if a patch does not apply cleanly.
 
+### Variant without `asd` and Ark
+
+`patches/optional/no-asd-ark.patch` — two lines in the `RT-BE92U` block of `target.mak`:
+`ASD=n` instead of `ASD=y`, `GTBOOSTER=n` instead of `GTBOOSTER=y`. Drops from the image:
+`asd` + `libasd.so`, `ark.ko`/`aqua.ko`/`ark.xdb` (~5 MB), `ark_service`, `rsasign_sigArk_check`
+and the Ark hooks in `sched_daemon`.
+
+Controlled by the `no_security` input (default `true`). It is applied by a separate step and is
+**not** part of `patches/*.patch`, so the stock image stays reproducible from the same workflow
+(`no_security=false`) for comparison. The AiProtection tab remains in the web UI but stays empty —
+expected.
+
 ## What is not here yet
 
 - **kernel fixes** for the Brahma-B53 errata (timers, `CNTP_TVAL` bypass) — deliberately out of this

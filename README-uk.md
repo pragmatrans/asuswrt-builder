@@ -76,6 +76,17 @@ hostTools/local_install/lzop: libc.so.6: version `GLIBC_2.34' not found
 Крок `Apply patches` у `build.yml` накладає все, що лежить у `patches/*.patch`, **після**
 cherry-pick і блобів (наші зміни — зверху), і падає голосно, якщо патч не ліг чисто.
 
+### Варіант без `asd` і Ark
+
+`patches/optional/no-asd-ark.patch` — два рядки в блоці `RT-BE92U` (`target.mak`):
+`ASD=n` замість `ASD=y` і `GTBOOSTER=n` замість `GTBOOSTER=y`. Прибирає з образу
+`asd` + `libasd.so`, `ark.ko`/`aqua.ko`/`ark.xdb` (~5 МБ), `ark_service`, `rsasign_sigArk_check`
+і хуки Ark у `sched_daemon`.
+
+Вмикається полем `no_security` (типово `true`). Накладається окремим кроком і **не** потрапляє
+в `patches/*.patch`, щоб стоковий образ можна було зібрати тим самим workflow (`no_security=false`)
+для порівняння. У веб-UI вкладка AiProtection лишиться, але буде порожньою — це очікувано.
+
 ## Чого тут ще немає
 
 - **правки ядра** для ерат Brahma-B53 (таймери, `CNTP_TVAL` bypass) — свідомо поза цим репо: спершу треба зібрати стокове ядро й переконатись, що воно взагалі живе на залізі;
