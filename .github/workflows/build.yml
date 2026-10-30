@@ -1,0 +1,233 @@
+name: build
+
+# Збірка прошивки RT-BE92U з дерева Asuswrt-Merlin (HND 5.04behnd.4916, ядро 5.15, gcc 13.2).
+# Все, що можна винести з прогону, винесено в образ (image.yml) — тут лишається тільки
+# «взяти дерево, накласти наші зміни, зібрати, віддати артефакт».
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Гілка/тег RMerl/asuswrt-merlin.ng"
+        required: true
+        default: "rt-be92u-main"
+      model:
+        description: "Ціль make (нижнім регістром, як у gnuton: rt-be92u)"
+        required: true
+        default: "rt-be92u"
+      build_user:
+        description: "KBUILD_BUILD_USER (вшивається в uname -v)"
+        required: true
+        default: "pragmatrans"
+      build_host:
+        description: "KBUILD_BUILD_HOST"
+        required: true
+        default: "asuswrt-builder"
+      commit_manifest:
+        description: "Файл зі SHA комітів для cherry-pick (порожньо = не робити)"
+        required: false
+        default: ""
+      blob_commit:
+        description: "Merge-коміт, з якого підтягнути prebuilt-блоби (порожньо = не робити)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Тільки підготовка дерева + cherry-pick, без компіляції"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  MERLIN_DIR: /mnt/build/merlin
+  SDK_DIR: release/src-rt-5.04behnd.4916
+  IMAGE: ghcr.io/${{ github.repository }}:4916-gcc13.2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Раннер дає ~30-40 ГБ у корені, а дерево merlin — 11 ГБ і збірка додає ще стільки ж.
+      # Тому прибираємо передустановлене ПЕРЕД білдом (як у робочому qwen-v3) і працюємо в /mnt.
+      - name: Free disk space
+        run: |
+          set -eux
+          df -h /
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          docker system prune -af --volumes || true
+          echo "--- /mnt ---"
+          df -h /mnt || true
+
+      - name: Clone Merlin tree
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p /mnt/build
+          git clone --depth 1 --branch "$REF" --single-branch \
+            https://github.com/RMerl/asuswrt-merlin.ng "$MERLIN_DIR"
+          cd "$MERLIN_DIR"
+          git log --oneline -1
+          du -sh . 2>/dev/null || true
+
+      # Cherry-pick — тільки якщо дали маніфест. Для гілки rt-be92u-main він зазвичай не потрібен:
+      # там уже все, що вмерджено в merlin. Потрібен, коли збираємо з тегу (102.7 тощо).
+      - name: Cherry-pick manifest
+        if: ${{ inputs.commit_manifest != '' }}
+        env:
+          MANIFEST: ${{ inputs.commit_manifest }}
+        run: |
+          set +e
+          cd "$MERLIN_DIR"
+          git config user.name  "github-actions"
+          git config user.email "github-actions@github.com"
+          [ -f "$GITHUB_WORKSPACE/$MANIFEST" ] || { echo "немає маніфесту: $GITHUB_WORKSPACE/$MANIFEST"; exit 1; }
+
+          git fetch --unshallow origin || git fetch origin 'refs/heads/*:refs/remotes/origin/*'
+
+          APPLIED=0; SKIPPED=0
+          while IFS= read -r c; do
+            [ -z "$c" ] && continue
+            git cat-file -e "${c}^{commit}" 2>/dev/null || git fetch -q origin "$c" 2>/dev/null
+            if ! git cat-file -e "${c}^{commit}" 2>/dev/null; then
+              echo "· $c — немає в репо, пропуск"; SKIPPED=$((SKIPPED+1)); continue
+            fi
+            NP=$(git cat-file -p "$c" | grep -c '^parent')
+            if [ "${NP:-1}" -gt 1 ]; then
+              echo "· $c — merge-коміт, пропуск"; SKIPPED=$((SKIPPED+1)); continue
+            fi
+            if git cherry-pick -x "$c" >/dev/null 2>&1; then
+              echo "✓ $c"; APPLIED=$((APPLIED+1))
+            else
+              echo "✗ $c — конфлікт, пропуск"; git cherry-pick --abort 2>/dev/null; SKIPPED=$((SKIPPED+1))
+            fi
+          done < <(tr -d '\r' < "$GITHUB_WORKSPACE/$MANIFEST" | sed -E 's/#.*$//; s/[[:space:]]//g' | grep -E '^[0-9a-fA-F]{7,40}$' | tr 'A-F' 'a-f')
+          echo "застосовано $APPLIED, пропущено $SKIPPED"
+          echo "$APPLIED" > /tmp/applied.txt
+
+      - name: Import prebuilt blobs
+        if: ${{ inputs.blob_commit != '' }}
+        env:
+          BLOB: ${{ inputs.blob_commit }}
+        run: |
+          set -euo pipefail
+          cd "$MERLIN_DIR"
+          git cat-file -e "${BLOB}^{commit}" 2>/dev/null || git fetch -q origin "$BLOB"
+          git cat-file -e "${BLOB}^{commit}" 2>/dev/null || { echo "немає коміту $BLOB"; exit 1; }
+
+          git diff --name-only "${BLOB}^1" "$BLOB" | grep -E '^release/src-rt-[^/]+/bcmdrivers/' \
+            | awk '/\/prebuilt\// { if ($0 ~ /\/RT-BE92U\//) print; next } { print }' > /tmp/wanted.txt
+          echo "шляхів до імпорту: $(wc -l < /tmp/wanted.txt)"
+
+          while IFS= read -r p; do
+            [ -z "$p" ] && continue
+            git cat-file -e "${BLOB}:$p" 2>/dev/null && git checkout "$BLOB" -- "$p"
+          done < /tmp/wanted.txt
+          git add -A release/src-rt-*/bcmdrivers 2>/dev/null || true
+          git commit -q -m "RT-BE92U prebuilt blobs from $BLOB" || echo "нічого нового"
+
+      - name: Embed build info
+        if: ${{ inputs.dry_run != true }}
+        env:
+          BUILD_USER: ${{ inputs.build_user }}
+          BUILD_HOST: ${{ inputs.build_host }}
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          cd "$MERLIN_DIR"
+          OUT="release/src/router/www/CHERRY-PICKS.txt"
+          {
+            echo "Asuswrt-Merlin RT-BE92U — custom build"
+            echo "Tree  : $REF ($(git rev-parse --short HEAD))"
+            echo "Built : $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            echo "By    : $BUILD_USER@$BUILD_HOST"
+            echo ""
+            echo "Останні 20 комітів дерева:"
+            git log -20 --format='  %h  %s'
+          } > "$OUT"
+          cat "$OUT"
+
+      - name: Pull builder image
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull "$IMAGE"
+          docker image inspect "$IMAGE" --format '{{.Size}} bytes'
+
+      - name: Compile firmware
+        if: ${{ inputs.dry_run != true }}
+        env:
+          BUILD_USER: ${{ inputs.build_user }}
+          BUILD_HOST: ${{ inputs.build_host }}
+          MODEL: ${{ inputs.model }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -e KBUILD_BUILD_USER="$BUILD_USER" \
+            -e KBUILD_BUILD_HOST="$BUILD_HOST" \
+            -e LINUX_COMPILE_BY="$BUILD_USER" \
+            -e LINUX_COMPILE_HOST="$BUILD_HOST" \
+            -v /mnt/build:/build \
+            -w /build/merlin \
+            "$IMAGE" \
+            /bin/bash -lc "
+              set -euo pipefail
+              source /opt/env/hnd-515.sh
+              cd $SDK_DIR
+
+              # Те саме, що в робочому qwen-v3: обійти prebuild-перевірки, які вимагають
+              # закритих інструментів Асуса, і знести залишкові .config від u-boot.
+              echo -e 'default:\n\t@true' > build/prebuild_checks.mk
+              rm -rf bootloaders/obj/uboot/.config bootloaders/u-boot-2019.07/.config
+
+              echo '--- toolchain ---'
+              which aarch64-buildroot-linux-gnu-gcc || true
+              aarch64-buildroot-linux-gnu-gcc --version | head -1
+
+              make $MODEL
+            "
+
+      - name: Validate artifact
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=("$MERLIN_DIR/$SDK_DIR"/targets/*/"RT-BE92U"_*_nand_squashfs.pkgtb \
+                 "$MERLIN_DIR/$SDK_DIR"/targets/*/RT-BE92U_*.trx \
+                 "$MERLIN_DIR/$SDK_DIR"/image/*.w)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "образу немає — дивись лог компіляції"; exit 1
+          fi
+          ls -lh "${files[@]}"
+          mkdir -p /mnt/artifacts
+          for f in "${files[@]}"; do
+            cp -v "$f" /mnt/artifacts/
+            md5sum "$f" | sed 's#.*/##' > "/mnt/artifacts/$(basename "$f").md5"
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.dry_run != true }}
+        with:
+          name: RT-BE92U-${{ inputs.ref }}
+          path: /mnt/artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Summary
+        run: |
+          {
+            echo "### RT-BE92U · ${{ inputs.ref }}"
+            echo ""
+            echo "- модель: \`${{ inputs.model }}\`"
+            echo "- дерево: \`${{ inputs.ref }}\`"
+            echo "- збірка: \`${{ inputs.build_user }}@${{ inputs.build_host }}\`"
+            echo "- dry run: \`${{ inputs.dry_run }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

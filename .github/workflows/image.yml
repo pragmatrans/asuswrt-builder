@@ -1,0 +1,70 @@
+name: image
+
+# Образ з тулчейнами — окремий workflow, бо він потрібен рідко (змінився Dockerfile/env),
+# а білд прошивки бігає на готовому. Пушить у ghcr.io, звідки його тягне build.yml.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - env/**
+      - .github/workflows/image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Free disk space
+        run: |
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          docker system prune -af --volumes || true
+          df -h /
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=4916-gcc13.2
+            type=sha,prefix=4916-gcc13.2-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Тулчейни тягнуться з GitHub при кожному білді образу — це ~1 ГБ, тому кеш
+          # тримаємо в GHA, щоб після зміни env-скрипта не качати їх заново.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### Образ запушено"
+            echo ""
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
