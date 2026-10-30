@@ -84,10 +84,22 @@ The step order is deliberate:
 3. Actions → `build` → Run workflow → pick `ref`/`model` → Run.
 4. Artifact `RT-BE92U-<ref>` in the run, kept 14 days.
 
+## Patches
+
+`patches/jffs-to-tmp.patch` — move logs from `/jffs` to `/tmp`. The important part is not code but a
+single line in `src-rt/target.mak`: `PSISTLOG=y` in the `HND-96765_BASE` block (line 406). That flag
+makes `get_syslog_fname()`/`get_logfile_path()` (`shared/misc.c`) return `/jffs`, so syslogd writes
+`/jffs/syslog.log{,-1}`. The rest touches `httpd/common.h`, `httpd/web.c`, `rc/common.c`,
+`rc/watchdog.c`, `aaews/common.h`, `ssl_webs_download.sh`. Analysis and risks:
+`patches/jffs-to-tmp.md` (Ukrainian).
+
+The `Apply patches` step in `build.yml` applies everything under `patches/*.patch` **after**
+cherry-pick and blob import (our changes on top) and fails loudly if a patch does not apply cleanly.
+
 ## What is not here yet
 
-- **patches** (`/jffs` → `/tmp` logging, kernel fixes) — `patches/` is still empty; applying them will
-  be a separate step once the minimal set is agreed;
+- **kernel fixes** for the Brahma-B53 errata (timers, `CNTP_TVAL` bypass) — deliberately out of this
+  repo for now: first the stock kernel has to build and prove it survives on real hardware;
 - **proof that the image builds without Asus' closed blobs** — `blob_commit` exists precisely because
   blobs are missing on tags, while `rt-be92u-main` may already carry them;
 - **the 6-hour job limit** — a full HND build does not always fit. If we hit it: cache `targets/` and

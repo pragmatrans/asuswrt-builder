@@ -150,6 +150,23 @@ jobs:
           git add -A release/src-rt-*/bcmdrivers 2>/dev/null || true
           git commit -q -m "RT-BE92U prebuilt blobs from $BLOB" || echo "нічого нового"
 
+      # Наші патчі — останніми, після cherry-pick і блобів: вони належать нам, а не merlin.
+      # Патч мусить лягати чисто; якщо ні — падаємо голосно, а не збираємо напівпатчене дерево.
+      - name: Apply patches
+        run: |
+          set -euo pipefail
+          cd "$MERLIN_DIR"
+          shopt -s nullglob
+          list=("$GITHUB_WORKSPACE"/patches/*.patch)
+          if [ ${#list[@]} -eq 0 ]; then
+            echo "патчів немає — дерево як є"; exit 0
+          fi
+          for p in "${list[@]}"; do
+            echo "→ $(basename "$p")"
+            git apply --verbose "$p"
+          done
+          git --no-pager diff --stat
+
       - name: Embed build info
         if: ${{ inputs.dry_run != true }}
         env:

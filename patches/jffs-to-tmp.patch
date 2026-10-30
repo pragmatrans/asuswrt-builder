@@ -1,0 +1,127 @@
+--- a/release/src-rt/target.mak
++++ b/release/src-rt/target.mak
+@@ -403,7 +403,7 @@
+ 		NFS=n SNMPD=y TOR=y UPNPIGD2=y NANO=y NTPD=y IPSET=y VPN_FUSION_MERLIN=y
+ 
+ export HND-96765_BASE := HND_ROUTER=y HND_ROUTER_BE_4916=y PROFILE="96765GW" SW_HW_AUTH=y AMAS=y UTF8_SSID=y ETHOBD=y DWB=y \
+-		CONNDIAG=y SAMBA3="3.6.x" OOKLA=y WL_SCHED_V3=y UBI=y UBIFS=y PSISTLOG=y CABLEDIAG=y
++		CONNDIAG=y SAMBA3="3.6.x" OOKLA=y WL_SCHED_V3=y UBI=y UBIFS=y CABLEDIAG=y
+ 
+ export RT-BE92U := $(HND-96765_BASE)
+ export RT-BE92U += BUILD_NAME="RT-BE92U" EXT_PHY="BCM84880" NVSIZE="192" DHDAP=n HND_WL=y REPEATER=y IPV6SUPP=y HTTPS=y ARM=y AUTODICT=y \
+--- a/release/src/router/httpd/common.h
++++ b/release/src/router/httpd/common.h
+@@ -44,7 +44,7 @@
+ /* DEBUG DEFINE */
+ #define HTTPD_DEBUG             "/tmp/HTTPD_DEBUG"
+ #if (defined(RTCONFIG_JFFS2) || defined(RTCONFIG_JFFSV1) || defined(RTCONFIG_BRCM_NAND_JFFS2) || defined(RTCONFIG_UBIFS) || defined(RTCONFIG_JFFS_PARTITION))
+-#define HTTPD_DEBUG_FILE                "/jffs/HTTPD_DEBUG.log"
++#define HTTPD_DEBUG_FILE                "/tmp/HTTPD_DEBUG.log"
+ #else
+ #define HTTPD_DEBUG_FILE                  "/tmp/HTTPD_DEBUG.log"
+ #endif
+@@ -60,7 +60,7 @@
+ 	errno = save_errno; \
+ }while(0)
+ 
+-#define SECURITY_LOG_FILE "/jffs/security_recored.log"
++#define SECURITY_LOG_FILE "/tmp/security_recored.log"
+ #define SECURITY_LOG(fmt,args...) \
+ 	if(1) { \
+ 		security2log(LOG_INFO, SECURITY_LOG_FILE, LOG_CUSTOM, LOG_SHOWTIME, 30, fmt, ##args); \
+@@ -76,7 +76,7 @@
+ })
+ #endif
+ 
+-#define HTTPD_FB_DEBUG_FILE             "/jffs/HTTPD_FB_DEBUG.log"
++#define HTTPD_FB_DEBUG_FILE             "/tmp/HTTPD_FB_DEBUG.log"
+ #define HTTPD_FB_DEBUG(fmt, arg...) do {\
+ 	int save_errno = errno; \
+ 		asusdebuglog(LOG_INFO, HTTPD_FB_DEBUG_FILE, LOG_CUSTOM, LOG_SHOWTIME, 0, "[%s(%d)]:"fmt"\n", __FUNCTION__, __LINE__ , ##arg); \
+--- a/release/src/router/httpd/web.c
++++ b/release/src/router/httpd/web.c
+@@ -2777,9 +2777,9 @@
+ 			ret += dump_file(wp, filename);
+ 		}
+ 	}else if(!strcmp(file, "security_recored.log")){
+-		snprintf(filename, sizeof(filename), "/jffs/%s-1", file);
++		snprintf(filename, sizeof(filename), "/tmp/%s-1", file);
+ 		ret += dump_file(wp, filename);
+-		snprintf(filename, sizeof(filename), "/jffs/%s", file);
++		snprintf(filename, sizeof(filename), "/tmp/%s", file);
+ 		ret += dump_file(wp, filename);
+ 	}
+ #endif
+--- a/release/src/router/rc/common.c
++++ b/release/src/router/rc/common.c
+@@ -1826,9 +1826,9 @@
+ 		_dprintf("\nreset core file size as %d\n\n", s);
+ }
+ 
+-#define DEBUGLOG_KLOG_PATH "/jffs/debuglog_klog.tgz"
+-#define DEBUGLOG_CORE_PATH "/jffs/debuglog_core.tgz"
+-#define DEBUGLOG_SLOG_PATH "/jffs/debuglog_slog.tgz"
++#define DEBUGLOG_KLOG_PATH "/tmp/debuglog_klog.tgz"
++#define DEBUGLOG_CORE_PATH "/tmp/debuglog_core.tgz"
++#define DEBUGLOG_SLOG_PATH "/tmp/debuglog_slog.tgz"
+ extern void collect_misclog(char* file_list, size_t len);
+ extern void delete_tmplog();
+ void collect_debuglog(int type)
+--- a/release/src/router/rc/watchdog.c
++++ b/release/src/router/rc/watchdog.c
+@@ -9949,13 +9949,13 @@
+ 		onboarding_count = 0; // reset onboarding_count for obd_data_sync_timeout.
+ 		_dprintf("### onboarding connected(%d), reset onboarding_count ###\n", nvram_get_int("amas_path_stat"));
+ #ifdef RTCONFIG_LIBASUSLOG
+-		asusdebuglog(LOG_INFO, CFG_MNT_FOLDER"cfg_dbg.log", LOG_CUSTOM, LOG_SHOWTIME, 0,
++		asusdebuglog(LOG_INFO, "/tmp/cfg_dbg.log", LOG_CUSTOM, LOG_SHOWTIME, 0,
+ 			"onboarding connected(%d), reset onboarding_count\n", nvram_get_int("amas_path_stat"));
+ #endif
+ 	} else {
+ 		_dprintf("### onboarding connected(%d), onboarding_count=[%d] ###\n", nvram_get_int("amas_path_stat"), onboarding_count);
+ #ifdef RTCONFIG_LIBASUSLOG
+-		asusdebuglog(LOG_INFO, CFG_MNT_FOLDER"cfg_dbg.log", LOG_CUSTOM, LOG_SHOWTIME, 0,
++		asusdebuglog(LOG_INFO, "/tmp/cfg_dbg.log", LOG_CUSTOM, LOG_SHOWTIME, 0,
+ 			"onboarding connected(%d), onboarding_count=[%d]\n", nvram_get_int("amas_path_stat"), onboarding_count);
+ #endif
+ 	}
+@@ -9968,7 +9968,7 @@
+ 		if (!bh_selected) {
+ 			_dprintf("### onboarding connection timeout, restore to default ###\n");
+ #ifdef RTCONFIG_LIBASUSLOG
+-			asusdebuglog(LOG_INFO, CFG_MNT_FOLDER"cfg_dbg.log", LOG_CUSTOM, LOG_SHOWTIME, 0,
++			asusdebuglog(LOG_INFO, "/tmp/cfg_dbg.log", LOG_CUSTOM, LOG_SHOWTIME, 0,
+ 				"onboarding connection timeout, restore to default\n");
+ #endif
+ 		}
+@@ -9976,7 +9976,7 @@
+ 		{
+ 			_dprintf("### onboarding traffic timeout, restore to default ###\n");
+ #ifdef RTCONFIG_LIBASUSLOG
+-			asusdebuglog(LOG_INFO, CFG_MNT_FOLDER"cfg_dbg.log", LOG_CUSTOM, LOG_SHOWTIME, 0,
++			asusdebuglog(LOG_INFO, "/tmp/cfg_dbg.log", LOG_CUSTOM, LOG_SHOWTIME, 0,
+ 				"onboarding traffic timeout, restore to default\n");
+ #endif
+ 		}
+--- a/release/src/router/aaews/common.h
++++ b/release/src/router/aaews/common.h
+@@ -78,7 +78,7 @@
+ void start_sip_conn();
+ #ifdef RTCONFIG_LIBASUSLOG
+ #define AAE_MAX_LOG_LEN 960
+-#define AAE_DBG_LOG	"/jffs/aae.log"
++#define AAE_DBG_LOG	"/tmp/aae.log"
+ extern char *__progname;
+ #define AAEDBG(fmt,args...) \
+ 		asusdebuglog(LOG_INFO, AAE_DBG_LOG, LOG_CUSTOM, LOG_SHOWTIME, 256, "[%s][%d]][%s:(%d)] "fmt"\n", __progname, getpid(), __FUNCTION__, __LINE__, ##args);
+--- a/release/src/router/rom/webs_scripts/ssl_webs_download.sh
++++ b/release/src/router/rom/webs_scripts/ssl_webs_download.sh
+@@ -86,7 +86,7 @@
+ 	fi
+ elif [ "$forsq" -ge 2 ] && [ "$forsq" -le 9 ]; then
+ 	echo "---- wget fw sq beta_user ${dl_path_SQ_beta}${forsq}/$firmware_file ----" >> /tmp/webs_upgrade.log
+-	touch /jffs/KEEP_UPGRADE_DEBUG.log
++	touch /tmp/KEEP_UPGRADE_DEBUG.log
+ 	wget $wget_options ${dl_path_SQ_beta}${forsq}/$firmware_file -O $firmware_path
+ 	wget_result=$?
+ 	if [ "$rsa_enabled" != "" ]; then

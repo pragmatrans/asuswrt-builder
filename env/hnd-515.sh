@@ -24,8 +24,16 @@ for _tc in "$_tc_a64" "$_tc_arm" "$_tc_hf"; do
     fi
 done
 
-export PATH="${_tc_a64}/bin:${_tc_arm}/bin:${_tc_hf}/bin:${PATH}"
+export PATH="${PATH}:${_tc_a64}/bin:${_tc_arm}/bin:${_tc_hf}/bin"
 export LD_LIBRARY_PATH="${_tc_a64}/lib:${_tc_arm}/lib:${_tc_hf}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+
+# УВАГА: тулчейни додаються в КІНЕЦЬ PATH, не в початок.
+# Усередині тулчейну лежить свій autoreconf/automake (buildroot-збірка), і він безнадійно
+# зламаний — вантажить Autom4te::ChannelDefs з власного share/autoconf, а perl-модулів немає:
+#   Can't locate Autom4te/ChannelDefs.pm in @INC … at .../bin/autoreconf line 52
+# Дерево кличе голий `autoreconf` (libxml2), тому з тулчейном попереду воно падає.
+# А крос-компілятори все одно знайдуться: вони з префіксом (arm-buildroot-linux-gnueabihf-gcc),
+# і таких імен у системі немає.
 export CROSS_COMPILE=aarch64-buildroot-linux-gnu-
 export ARCH=arm64
 

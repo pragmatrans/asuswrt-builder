@@ -65,8 +65,19 @@ hostTools/local_install/lzop: libc.so.6: version `GLIBC_2.34' not found
 3. Actions → `build` → Run workflow → `ref`/`model` → Run.
 4. Артефакт `RT-BE92U-<ref>` у прогоні, 14 днів.
 
+## Патчі
+
+`patches/jffs-to-tmp.patch` — логи з `/jffs` → `/tmp`. Головне там не код, а один рядок у
+`src-rt/target.mak`: `PSISTLOG=y` у блоці `HND-96765_BASE` (рядок 406). Саме цей прапорець змушує
+`get_syslog_fname()`/`get_logfile_path()` (`shared/misc.c`) повертати `/jffs`, і syslogd пише
+`/jffs/syslog.log{,-1}`. Решта — `httpd/common.h`, `httpd/web.c`, `rc/common.c`, `rc/watchdog.c`,
+`aaews/common.h`, `ssl_webs_download.sh`. Розбір і ризики: `patches/jffs-to-tmp.md`.
+
+Крок `Apply patches` у `build.yml` накладає все, що лежить у `patches/*.patch`, **після**
+cherry-pick і блобів (наші зміни — зверху), і падає голосно, якщо патч не ліг чисто.
+
 ## Чого тут ще немає
 
-- **патчі** (логи `/jffs` → `/tmp`, правки ядра) — тека `patches/` поки порожня: накладати їх буде окремий крок, коли визначимось із мінімальним набором;
+- **правки ядра** для ерат Brahma-B53 (таймери, `CNTP_TVAL` bypass) — свідомо поза цим репо: спершу треба зібрати стокове ядро й переконатись, що воно взагалі живе на залізі;
 - **перевірки, що образ збирається без асусівських закритих блобів** — `blob_commit` існує саме тому, що на тегах їх немає, а на `rt-be92u-main` вони можуть бути вже в дереві;
 - **6-годинний ліміт job'а** — повна збірка HND вкладається не завжди. Якщо впремося: кешувати `targets/`/об'єкти між прогонами або розділяти kernel/userspace на два job'и з артефактами між ними.
