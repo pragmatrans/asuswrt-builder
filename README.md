@@ -1,64 +1,87 @@
-# asuswrt-builder — образ і CI для збірки RT-BE92U
+# asuswrt-builder — build image and CI for the RT-BE92U
 
-Тут живе рівно дві речі: **образ з крос-тулчейнами** і **workflow, який ним збирає прошивку**.
-Дерево merlin не форкається — воно клонується в прогоні, тому наші зміни завжди зверху й видно, що саме ми наклали.
+*[Українською](README-uk.md)*
 
-Навіщо свій образ, якщо є `gnuton/asuswrt-merlin-toolchains-docker`:
+Two things live here: a **cross-toolchain image** and the **workflow that builds the firmware with it**.
+The merlin tree is not forked — it is cloned during the run, so our changes always sit on top and it
+stays obvious what we actually applied.
 
-- там тулчейни під 4.1/4.19 (SDK 5.02/5.04axhnd), а для `rt-be92u-main` потрібен **gcc 13.2 / glibc 2.38 / ядро 5.15**;
-- його env-скрипт `bcm-hnd-ax-4.19be.sh` під 5.15 не існує, і зсередини образу його не дописати;
-- у нас тулчейн **усередині** образу, а не змонтований ззовні — інакше прогін невідтворюваний: сьогодні змонтували `brcm-arm-hnd` з master, завтра він інший.
+## Why a custom image instead of `gnuton/asuswrt-merlin-toolchains-docker`
 
-## Що всередині
+- that image ships toolchains for kernels 4.1/4.19 (SDK 5.02 / 5.04axhnd), while `rt-be92u-main`
+  needs **gcc 13.2 / glibc 2.38 / kernel 5.15**;
+- its env script `bcm-hnd-ax-4.19be.sh` has no 5.15 counterpart, and you cannot add one from outside
+  the image;
+- our toolchain is **baked in**, not bind-mounted from the host. A bind mount makes the run
+  irreproducible: today it mounts `brcm-arm-hnd` from master, tomorrow that is a different tree.
 
-`Dockerfile` — Ubuntu 20.04, набір пакетів зі списку RMerl (його gist з девелоперським докером, який він ділив з Асусом), плюс те, що потрібне саме 5.15-дереву: `device-tree-compiler`, `cpio`, `patchelf`, `lzma`, 32-бітні бібліотеки для `hostTools/`, `python2` (SDK досі кличе його зі скриптів).
+## What is inside
 
-Чому 20.04, а не 22.04: у 22.04 немає `python2` і `libncurses5`, а 18.04 ламається об ncurses 6 — це та сама межа, на яку вказав RMerl. Тулчейн самодостатній (glibc 2.38 усередині), тому новіша база нічого не дає.
+`Dockerfile` — Ubuntu 20.04, the package list from RMerl's own dev docker (the one he shared with
+Asus), plus what the 5.15 tree specifically needs: `device-tree-compiler`, `cpio`, `patchelf`, `lzma`,
+32-bit libraries for `hostTools/`, and `python2` (the SDK still calls it from its scripts).
 
-Тулчейни беруться з публічного `RMerl/am-toolchains`, sparse-клоном (повний репо — ~1 ГБ на десяток тулчейнів, нам треба три):
+Why 20.04 and not 22.04: 22.04 dropped `python2` and `libncurses5`, and 18.04 breaks on ncurses 6 —
+the same boundary RMerl flagged. The toolchain is self-contained (glibc 2.38 lives inside it), so a
+newer base buys nothing.
 
-| арх | каталог | навіщо |
+Toolchains come from the public `RMerl/am-toolchains` via a sparse clone (the full repo is ~1 GB for a
+dozen toolchains; we need three):
+
+| arch | directory | why |
 |---|---|---|
-| aarch64 | `crosstools-aarch64-gcc-13.2-linux-5.15-glibc-2.38-binutils-2.41` | ядро 5.15 (`PROFILE_KARCH=aarch64`) |
-| arm | `crosstools-arm-gcc-13.2-…` | 32-бітні частини |
-| arm_hf | `crosstools-arm_hf-gcc-13.2-…` | основний userspace (`PROFILE_ARCH=armhfp`) |
+| aarch64 | `crosstools-aarch64-gcc-13.2-linux-5.15-glibc-2.38-binutils-2.41` | kernel 5.15 (`PROFILE_KARCH=aarch64`) |
+| arm | `crosstools-arm-gcc-13.2-…` | 32-bit parts |
+| arm_hf | `crosstools-arm_hf-gcc-13.2-…` | main userspace (`PROFILE_ARCH=armhfp`) |
 
-`env/hnd-515.sh` — те, чого не робить `make.toolchain` сам: додає `bin/` усіх трьох тулчейнів у `PATH` (виконувані файли лежать у `bin/`, не в `usr/bin/` — це видно з самого репо тулчейнів), `lib/` у `LD_LIBRARY_PATH`, і виставляє `KBUILD_BUILD_USER/HOST`, з яких ядро бере свій `uname -v`.
+`env/hnd-515.sh` does what `make.toolchain` will not: it puts the `bin/` directory of all three
+toolchains on `PATH` (executables live in `bin/`, not `usr/bin/` — visible in the toolchain repo
+itself), `lib/` on `LD_LIBRARY_PATH`, and exports `KBUILD_BUILD_USER/HOST`, from which the kernel
+takes its `uname -v`.
 
-Префікси в скрипті не вигадані — вони з `make.toolchain`:
-`aarch64-buildroot-linux-gnu` (рядок 260), `arm-buildroot-linux-gnueabi` (231), `arm-buildroot-linux-gnueabihf` (216).
+The prefixes are not invented; they come from `make.toolchain`:
+`aarch64-buildroot-linux-gnu` (line 260), `arm-buildroot-linux-gnueabi` (231),
+`arm-buildroot-linux-gnueabihf` (216).
 
-## Workflow
+## Workflows
 
-`image.yml` — збирає образ і пушить у `ghcr.io/<owner>/asuswrt-builder:4916-gcc13.2`. Бігає тільки коли змінився `Dockerfile`, `env/**` або сам workflow.
+`image.yml` — builds the image and pushes it to `ghcr.io/<owner>/asuswrt-builder:4916-gcc13.2`.
+Runs only when `Dockerfile`, `env/**` or the workflow itself changes.
 
-`build.yml` — сама збірка, `workflow_dispatch` з полями:
+`build.yml` — the actual build, `workflow_dispatch` with inputs:
 
-- `ref` — гілка merlin (за замовчуванням `rt-be92u-main`; для 102.7 — `3006.102.7`, але тоді ядро 4.19 і треба env під 4.19);
-- `model` — ціль `make`, нижнім регістром (`rt-be92u`);
-- `build_user` / `build_host` — «прикраси», які вшиваються в `uname -v`;
-- `commit_manifest` — файл зі SHA для cherry-pick (порожньо = не робити; для `rt-be92u-main` не потрібен);
-- `blob_commit` — merge-коміт, з якого підтягнути `prebuilt`-блоби `RT-BE92U` (порожньо = не робити);
-- `dry_run` — підготувати дерево без компіляції.
+- `ref` — merlin branch or tag (default `rt-be92u-main`; `3006.102.7` also works, but that tree is
+  kernel 4.19 and needs a 4.19 env script);
+- `model` — the `make` target, lowercase (`rt-be92u`);
+- `build_user` / `build_host` — the "decorations" embedded in `uname -v`;
+- `commit_manifest` — file with commit SHAs to cherry-pick (empty = skip; not needed for
+  `rt-be92u-main`);
+- `blob_commit` — merge commit to import `RT-BE92U` `prebuilt` blobs from (empty = skip);
+- `dry_run` — prepare the tree without compiling.
 
-Порядок у прогоні навмисний:
+The step order is deliberate:
 
-1. **звільнити диск** — корінь раннера дає ~30–40 ГБ, а дерево merlin це 11 ГБ;
-2. **клон у `/mnt/build`** — `/mnt` на раннері більший за корінь (той самий трюк, що в gnuton: «prevents to run out of space»);
-3. cherry-pick / блоби — за потреби;
-4. `CHERRY-PICKS.txt` у `www/` — щоб у веб-UI було видно, що саме зібрано;
-5. `docker run` нашого образу з `-v /mnt/build:/build`, всередині `source /opt/env/hnd-515.sh`, обхід `prebuild_checks.mk` (він вимагає закритих інструментів Асуса), `make rt-be92u`;
-6. перевірка артефакту й `upload-artifact`.
+1. **free disk space** — the runner root gives ~30–40 GB while the merlin tree alone is 11 GB;
+2. **clone into `/mnt/build`** — `/mnt` is larger than the root filesystem on GitHub runners (the same
+   trick gnuton uses: "prevents to run out of space");
+3. cherry-pick / blob import — when requested;
+4. `CHERRY-PICKS.txt` in `www/` — so the web UI shows what was built;
+5. `docker run` of our image with `-v /mnt/build:/build`, inside: `source /opt/env/hnd-515.sh`,
+   bypass `prebuild_checks.mk` (it wants Asus' closed-source tooling), `make rt-be92u`;
+6. artifact validation and `upload-artifact`.
 
-## Як користуватися
+## Usage
 
-1. Форкнути/запушити цей репо (публічний — хвилини Actions безкоштовні).
-2. Actions → `image` → Run workflow (один раз, ~10–15 хв на тулчейни й apt).
-3. Actions → `build` → Run workflow → `ref`/`model` → Run.
-4. Артефакт `RT-BE92U-<ref>` у прогоні, 14 днів.
+1. Fork or push this repo (public — Actions minutes are free).
+2. Actions → `image` → Run workflow (once, ~10–15 min for apt and toolchains).
+3. Actions → `build` → Run workflow → pick `ref`/`model` → Run.
+4. Artifact `RT-BE92U-<ref>` in the run, kept 14 days.
 
-## Чого тут ще немає
+## What is not here yet
 
-- **патчі** (логи `/jffs` → `/tmp`, правки ядра) — тека `patches/` поки порожня: накладати їх буде окремий крок, коли визначимось із мінімальним набором;
-- **перевірки, що образ збирається без асусівських закритих блобів** — `blob_commit` існує саме тому, що на тегах їх немає, а на `rt-be92u-main` вони можуть бути вже в дереві;
-- **6-годинний ліміт job'а** — повна збірка HND вкладається не завжди. Якщо впремося: кешувати `targets/`/об'єкти між прогонами або розділяти kernel/userspace на два job'и з артефактами між ними.
+- **patches** (`/jffs` → `/tmp` logging, kernel fixes) — `patches/` is still empty; applying them will
+  be a separate step once the minimal set is agreed;
+- **proof that the image builds without Asus' closed blobs** — `blob_commit` exists precisely because
+  blobs are missing on tags, while `rt-be92u-main` may already carry them;
+- **the 6-hour job limit** — a full HND build does not always fit. If we hit it: cache `targets/` and
+  objects between runs, or split kernel/userspace into two jobs exchanging artifacts.
