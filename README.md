@@ -17,13 +17,20 @@ stays obvious what we actually applied.
 
 ## What is inside
 
-`Dockerfile` — Ubuntu 20.04, the package list from RMerl's own dev docker (the one he shared with
+`Dockerfile` — Ubuntu 22.04, the package list from RMerl's own dev docker (the one he shared with
 Asus), plus what the 5.15 tree specifically needs: `device-tree-compiler`, `cpio`, `patchelf`, `lzma`,
-32-bit libraries for `hostTools/`, and `python2` (the SDK still calls it from its scripts).
+32-bit libraries for `hostTools/`.
 
-Why 20.04 and not 22.04: 22.04 dropped `python2` and `libncurses5`, and 18.04 breaks on ncurses 6 —
-the same boundary RMerl flagged. The toolchain is self-contained (glibc 2.38 lives inside it), so a
-newer base buys nothing.
+Why 22.04 and not 20.04: the tree ships prebuilt x86_64 host tools under `hostTools/prebuilt/*`
+(`lzop`, `mksquashfs`, `mkfs.ubifs`, `ubinize`, `lzmacmd`, `addvtoken`) linked against **glibc 2.34**.
+On 20.04 (2.31) the build dies on `lzop` in `bootloaders/Makefile` — exactly the error in the log:
+
+```
+hostTools/local_install/lzop: libc.so.6: version `GLIBC_2.34' not found
+```
+
+22.04 provides glibc 2.35. `python2` is gone in 22.04, but the 5.15 tree does not need it — it only
+appears in a comment inside `u-boot-2024.04/Makefile`.
 
 Toolchains come from the public `RMerl/am-toolchains` via a sparse clone (the full repo is ~1 GB for a
 dozen toolchains; we need three):
