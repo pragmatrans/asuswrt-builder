@@ -30,7 +30,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # що потрібне саме 5.15-дереву — dtc, cpio, patchelf, lzma, 32-бітні бібліотеки для hostTools.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential make gcc g++ binutils-dev patch m4 bison flex gawk gperf \
-        autoconf automake autopoint libtool-bin shtool autogen intltool \
+        autoconf automake autopoint libtool libtool-bin shtool autogen intltool \
         zlib1g-dev libncurses5 libncurses5-dev libtinfo5 libssl-dev libglib2.0-dev libyaml-dev \
         liblzma-dev lzma xz-utils liblzo2-dev uuid-dev libpopt-dev \
         libc6-i386 lib32stdc++6 lib32z1 libc6-dev-i386 \

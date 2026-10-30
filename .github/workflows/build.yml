@@ -205,6 +205,9 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0='*' \
             -e KBUILD_BUILD_USER="$BUILD_USER" \
             -e KBUILD_BUILD_HOST="$BUILD_HOST" \
             -e LINUX_COMPILE_BY="$BUILD_USER" \
