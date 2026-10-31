@@ -44,6 +44,10 @@ a fix that makes an existing build work without changing what it produces.
 
 ### Fixed
 
+- `regulatory.db` landed in `/rom/lib/firmware` instead of `/lib/firmware`: `rom/` is packed
+  verbatim into `$(INSTALLDIR)/rom`, i.e. `/rom` in the running system, while the kernel's
+  firmware loader looks at `$(INSTALLDIR)/lib/firmware`. `patches/regulatory-db-lib-firmware.patch`
+  extends `rom/Makefile:install` to install the file into both places.
 - The `regulatory.db` copy step in `build.yml` broke the workflow with
   `syntax error near unexpected token '('` — the whole block runs inside a double-quoted
   `docker run "..."`, so `$(...)` and nested quotes were expanded by the runner's shell before the

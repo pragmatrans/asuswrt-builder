@@ -1,0 +1,18 @@
+--- a/release/src/router/rom/Makefile
++++ b/release/src/router/rom/Makefile
+@@ -86,6 +86,15 @@
+ install:
+ 	mkdir -p $(INSTALLDIR)
+ 	( tar --exclude=.svn --exclude=*.bak -cpf - rom bin ) | ( cd $(INSTALLDIR) && tar -xpf - )
++# regulatory.db: rom/ пакується в /rom, а firmware loader ядра шукає файл у
++# /lib/firmware, тобто $(INSTALLDIR)/lib/firmware. Джерело — rom/lib/firmware,
++# куди файл кладе крок "Compile firmware" з пакета wireless-regdb.
++	@if [ -f rom/lib/firmware/regulatory.db ]; then \
++		install -D rom/lib/firmware/regulatory.db $(INSTALLDIR)/lib/firmware/regulatory.db; \
++		if [ -f rom/lib/firmware/regulatory.db.p7s ]; then \
++			install -D rom/lib/firmware/regulatory.db.p7s $(INSTALLDIR)/lib/firmware/regulatory.db.p7s; \
++		fi; \
++	fi
+ ifeq ($(RTCONFIG_DEBUG),y)
+ 	$(if $(or $(RTCONFIG_SOC_IPQ8064),$(RTCONFIG_SOC_IPQ8074)),install -m 0755 $(if $(filter y,$(MUSL64)),gdb.ipq807x.musl64,gdb.ipq806x) $(INSTALLDIR)/bin/gdb)
+ 	$(if $(RTCONFIG_MT798X),install -m 0755 gdb-10.1-arm64-musl $(INSTALLDIR)/bin/gdb)
