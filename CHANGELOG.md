@@ -30,10 +30,13 @@ a fix that makes an existing build work without changing what it produces.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-31
+
 ### Added
 
-- `regulatory.db` from the `wireless-regdb` package is copied into `rom/lib/firmware` before the
-  build, so the image ships `/lib/firmware/regulatory.db`. Without it the 5.15 kernel logs
+- `regulatory.db` from the `wireless-regdb` package is copied into `rom/rom/lib/firmware` before the
+  build, so the image ships `/lib/firmware/regulatory.db`. Verified on RT-BE92U: the file and its
+  `.p7s` are present at `/lib/firmware/` and the boot log no longer carries the `error -2` line. Without it the 5.15 kernel logs
   `platform regulatory.0: Direct firmware load for regulatory.db failed with error -2` on every
   boot (Asus handles regulatory domains through `wl` and never shipped the file).
 - `patches/busybox-httpd.patch` — enables `CONFIG_HTTPD` in `busybox/config_base`. Asus builds
