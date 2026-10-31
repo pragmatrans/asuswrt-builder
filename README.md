@@ -127,3 +127,9 @@ The `drop_asd` input (default `false`) additionally sets `ASD=n` and makes `liba
   blobs are missing on tags, while `rt-be92u-main` may already carry them;
 - **the 6-hour job limit** — a full HND build does not always fit. If we hit it: cache `targets/` and
   objects between runs, or split kernel/userspace into two jobs exchanging artifacts.
+
+## Changelog
+
+Every change to the image, workflow, patches or scripts gets a line in [CHANGELOG.md](CHANGELOG.md)
+in the same commit. A change is not done until it is there — see the "How to keep it" section at
+the top of that file.
