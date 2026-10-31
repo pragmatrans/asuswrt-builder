@@ -260,17 +260,19 @@ jobs:
               # regulatory.db: ядро 5.15 просить /lib/firmware/regulatory.db і без нього
               # пише у лог 'Direct firmware load for regulatory.db failed with error -2'.
               # Асус кладе регуляторні домени через wl, тому в образі файлу немає.
-              # Беремо з пакета wireless-regdb (він є в образі) і підкладаємо в rom/:
-              # rom/ копіюється в корінь прошивки як є, тобто rom/lib/firmware → /lib/firmware.
-              regdb_dest=release/src/router/rom/lib/firmware
+              # Беремо з пакета wireless-regdb і підкладаємо в rom/: rom/ пакується
+              # в корінь прошивки як є, тобто rom/lib/firmware стає /lib/firmware.
+              # Увага: без подвійних лапок і \$() — увесь блок іде в docker run "...",
+              # і зовнішній shell інакше з'їдає підстановки ще на раннері.
+              regdb_dest=/build/merlin/release/src/router/rom/lib/firmware
+              mkdir -p \$regdb_dest
               if [ -f /lib/firmware/regulatory.db ]; then
-                mkdir -p "$regdb_dest"
-                cp -f /lib/firmware/regulatory.db "$regdb_dest"/
-                [ -f /lib/firmware/regulatory.db.p7s ] && cp -f /lib/firmware/regulatory.db.p7s "$regdb_dest"/
-                echo "regulatory.db: $(ls -l "$regdb_dest" | tail -n +2 | wc -l) файл(ів) у $regdb_dest"
+                cp -f /lib/firmware/regulatory.db \$regdb_dest/
+                cp -f /lib/firmware/regulatory.db.p7s \$regdb_dest/ 2>/dev/null || true
               else
-                echo "WARNING: /lib/firmware/regulatory.db відсутній — regulator.0 буде скаржитись"
+                echo 'WARNING: /lib/firmware/regulatory.db відсутній — regulator.0 буде скаржитись'
               fi
+              ls -l \$regdb_dest
 
               make $MODEL
             "

@@ -1,0 +1,14 @@
+--- a/release/src/router/busybox/config_base
++++ b/release/src/router/busybox/config_base
+@@ -812,7 +812,10 @@
+ CONFIG_FTPPUT=y
+ # CONFIG_FEATURE_FTPGETPUT_LONG_OPTIONS is not set
+ CONFIG_HOSTNAME=y
+-# CONFIG_HTTPD is not set
++# busybox-httpd: Асус збирає busybox без аплета httpd, а нам потрібен маленький
++# статичний сервер для читання логів по LAN (у прошивці `httpd` на PATH — це
++# закритий веб-сервер Асуса, який не вміє -p/-h).
++CONFIG_HTTPD=y
+ # CONFIG_FEATURE_HTTPD_RANGES is not set
+ # CONFIG_FEATURE_HTTPD_SETUID is not set
+ # CONFIG_FEATURE_HTTPD_BASIC_AUTH is not set
