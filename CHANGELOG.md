@@ -44,6 +44,11 @@ a fix that makes an existing build work without changing what it produces.
 
 ### Fixed
 
+- `regulatory.db` landed nowhere: `rom/Makefile` runs `tar rom bin` **with cwd = `rom/`**, so the
+  tarball only carries the *inner* `rom/` (which holds `etc`, `jffs.json`, `tmpfs.json`) and `bin/`.
+  The file was copied to `rom/lib/firmware` — one level too high, so it never reached the tarball.
+  Source is now `rom/rom/lib/firmware` (verified with `tar -cpf - rom bin | tar -tf -`), and the
+  build step prints where the file ended up after `make`.
 - `regulatory.db` landed in `/rom/lib/firmware` instead of `/lib/firmware`: `rom/` is packed
   verbatim into `$(INSTALLDIR)/rom`, i.e. `/rom` in the running system, while the kernel's
   firmware loader looks at `$(INSTALLDIR)/lib/firmware`. `patches/regulatory-db-lib-firmware.patch`
