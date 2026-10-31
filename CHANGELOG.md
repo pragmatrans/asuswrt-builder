@@ -30,6 +30,13 @@ a fix that makes an existing build work without changing what it produces.
 
 ## [Unreleased]
 
+### Added
+
+- `regulatory.db` from the `wireless-regdb` package is copied into `rom/lib/firmware` before the
+  build, so the image ships `/lib/firmware/regulatory.db`. Without it the 5.15 kernel logs
+  `platform regulatory.0: Direct firmware load for regulatory.db failed with error -2` on every
+  boot (Asus handles regulatory domains through `wl` and never shipped the file).
+
 ## [0.1.0] - 2026-10-31
 
 First working firmware: **RT-BE92U, kernel 5.15.167, built in GitHub Actions from a self-contained

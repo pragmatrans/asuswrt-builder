@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libc6-i386 lib32stdc++6 lib32z1 libc6-dev-i386 \
         device-tree-compiler u-boot-tools mtd-utils cpio patchelf dos2unix \
         texinfo xsltproc docbook-xsl sharutils gengetopt \
-        bc rsync sudo zip unzip wget curl ca-certificates xxd gdisk \
+        bc rsync sudo zip unzip wget curl ca-certificates xxd gdisk wireless-regdb \
         git git-lfs software-properties-common \
         python3 python3-packaging python-is-python3 golang cmake \
     && ln -sf bash /bin/sh \
