@@ -30,6 +30,11 @@ a fix that makes an existing build work without changing what it produces.
 
 ## [Unreleased]
 
+### Changed
+
+- Artifact `retention-days` 14 → 7: кожен образ ~57 МБ, старі прогони з'їдають сховище
+  Actions і захаращують список. Перевірені прогони видалені руками, лишився один робочий.
+
 ## [0.1.1] - 2026-10-31
 
 ### Added

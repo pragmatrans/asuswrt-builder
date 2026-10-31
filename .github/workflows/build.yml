@@ -306,7 +306,7 @@ jobs:
           name: RT-BE92U-${{ inputs.ref }}${{ inputs.no_security && '-nosec' || '' }}${{ inputs.drop_asd && '-noasd' || '' }}
           path: ${{ env.WORK_DIR }}/artifacts/*
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
 
       - name: Summary
         run: |
