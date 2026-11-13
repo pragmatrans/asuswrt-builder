@@ -30,6 +30,13 @@ a fix that makes an existing build work without changing what it produces.
 
 ## [Unreleased]
 
+### Added
+
+- `docs/rt-be92u-notebook.md`: журнал рішень по прошивці — базовий рівень (`3006_102.10_alpha2`,
+  SDK 6.2.0, ядро 5.15.167), наш патч-сет і його крихкість, що свідомо не беремо в AP-режимі,
+  правила «брати / не брати» апстрім і тести на залізі. Мета: не перезбирати кожен коміт merlin,
+  а інтегрувати точково (`commit_manifest` + `patches/`).
+
 ### Changed
 
 - Artifact `retention-days` 14 → 7: кожен образ ~57 МБ, старі прогони з'їдають сховище
