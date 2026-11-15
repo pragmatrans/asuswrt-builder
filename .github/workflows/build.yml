@@ -45,18 +45,25 @@ on:
         type: boolean
         required: false
         default: false
+      image:
+        description: "Образ збірки. Пін за digest: тег :4916-gcc13.2 перезаписується при кожній перезбірці, і «той самий образ» через місяць — уже інший компілятор"
+        required: false
+        default: "ghcr.io/pragmatrans/asuswrt-builder@sha256:223829ff9645ae24c1631964e0d2ce6cd2c4c626bf9875c32d12455c89fae2ca"
 
 permissions:
   contents: read
 
 env:
   SDK_DIR: release/src-rt-5.04behnd.4916
-  IMAGE: ghcr.io/${{ github.repository }}:4916-gcc13.2
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    env:
+      # Пін за digest, а не за тегом: перезбірка образу під тим самим тегом змінює компілятор,
+      # а еталонна прошивка мусить бути відтворюваною. Оновити digest — свідома дія, не побічний ефект.
+      IMAGE: ${{ inputs.image }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -223,6 +230,10 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker pull "$IMAGE"
           docker image inspect "$IMAGE" --format '{{.Size}} bytes'
+          # Фактичний digest — у лог і в summary: за ним еталон прив'язаний до конкретного тулчейну.
+          DIGEST=$(docker image inspect "$IMAGE" --format '{{index .RepoDigests 0}}')
+          echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_ENV"
+          echo "образ: $DIGEST"
 
       - name: Compile firmware
         if: ${{ inputs.dry_run != true }}
@@ -297,7 +308,9 @@ jobs:
           mkdir -p "$WORK_DIR/artifacts"
           for f in "${files[@]}"; do
             cp -v "$f" "$WORK_DIR/artifacts/"
-            md5sum "$f" | sed 's#.*/##' > "$WORK_DIR/artifacts/$(basename "$f").md5"
+            b=$(basename "$f")
+            md5sum "$f" | sed 's#.*/##' > "$WORK_DIR/artifacts/$b.md5"
+            sha256sum "$f" | sed 's#.*/##' > "$WORK_DIR/artifacts/$b.sha256"
           done
 
       - uses: actions/upload-artifact@v4
@@ -316,5 +329,11 @@ jobs:
             echo "- модель: \`${{ inputs.model }}\`"
             echo "- дерево: \`${{ inputs.ref }}\`"
             echo "- збірка: \`${{ inputs.build_user }}@${{ inputs.build_host }}\`"
+            echo "- образ: \`${IMAGE_DIGEST:-не тягнувся (dry run)}\`"
             echo "- dry run: \`${{ inputs.dry_run }}\`"
+            # Готовий блок для журналу: якщо ця збірка стає еталоном, це копіюється в §1 без пошуків.
+            for f in "$WORK_DIR"/artifacts/*.sha256; do
+              [ -e "$f" ] || continue
+              echo "- \`$(cat "$f")\`"
+            done
           } >> "$GITHUB_STEP_SUMMARY"
