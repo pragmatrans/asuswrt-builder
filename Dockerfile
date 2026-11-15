@@ -9,14 +9,16 @@
 # 22.04 дає 2.35. python2 у 22.04 вже немає — і 5.15-дереву він не потрібен (є лише згадка
 # в u-boot-2024.04/Makefile, не виклик).
 #
-# Тулчейни — з публічного RMerl/am-toolchains, запечені в /opt/toolchains так, як їх очікує
+# Тулчейни — з публічного Asuswrt-Merlin/am-toolchains (раніше RMerl/, репо переїхали в орг
+# 14.11.2026; старий шлях ще редиректить, але покладатись на редирект у збірці не варто),
+# запечені в /opt/toolchains так, як їх очікує
 # make.toolchain: для PROFILE_KERNEL_VER=LINUX_5_15_0 + AARCH64 дерево бере
 #   $(TOOLCHAIN_BASE)/crosstools-aarch64-gcc-13.2-linux-5.15-glibc-2.38-binutils-2.41
 # а для 32-бітного userspace (PROFILE_ARCH=armhfp) — crosstools-arm-… і crosstools-arm_hf-… тієї ж версії.
 # Ніяких монтувань ззовні: образ мусить бути самодостатнім, інакше CI невідтворюваний.
 FROM ubuntu:22.04
 
-ARG TOOLCHAINS_REPO=https://github.com/RMerl/am-toolchains.git
+ARG TOOLCHAINS_REPO=https://github.com/Asuswrt-Merlin/am-toolchains.git
 ARG TOOLCHAINS_REF=master
 
 ENV DEBIAN_FRONTEND=noninteractive \

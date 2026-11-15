@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Гілка/тег RMerl/asuswrt-merlin.ng"
+        description: "Гілка/тег Asuswrt-Merlin/asuswrt-merlin.ng"
         required: true
         default: "rt-be92u-main"
       model:
@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
           mkdir -p /mnt/build
           git clone --depth 1 --branch "$REF" --single-branch \
-            https://github.com/RMerl/asuswrt-merlin.ng "$MERLIN_DIR"
+            https://github.com/Asuswrt-Merlin/asuswrt-merlin.ng "$MERLIN_DIR"
           cd "$MERLIN_DIR"
           git log --oneline -1
           du -sh . 2>/dev/null || true

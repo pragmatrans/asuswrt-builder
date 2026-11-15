@@ -32,7 +32,7 @@ hostTools/local_install/lzop: libc.so.6: version `GLIBC_2.34' not found
 22.04 provides glibc 2.35. `python2` is gone in 22.04, but the 5.15 tree does not need it — it only
 appears in a comment inside `u-boot-2024.04/Makefile`.
 
-Toolchains come from the public `RMerl/am-toolchains` via a sparse clone (the full repo is ~1 GB for a
+Toolchains come from the public `Asuswrt-Merlin/am-toolchains` (was `RMerl/` until 2026-11-14, when the repos moved to the org) via a sparse clone (the full repo is ~1 GB for a
 dozen toolchains; we need three):
 
 | arch | directory | why |

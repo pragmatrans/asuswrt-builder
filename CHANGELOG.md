@@ -34,6 +34,8 @@ a fix that makes an existing build work without changing what it produces.
 
 - `docs/rt-be92u-notebook.md` §1.1: картка еталонного артефакту (дата, файл, `SHA256`, `REVISION`,
   digest образу, коміт) — заповнюється при прошивці, бо самі артефакти видаляються.
+- `docs/rt-be92u-notebook.md` §8.1: міграція репо Merlin з `RMerl` в орг `Asuswrt-Merlin` — що це
+  змінило для нас і чому образ перезбирати не треба.
 - workflow `build`: крок «Validate artifact» пише `.sha256` поруч із `.md5`; «Summary» друкує
   `IMAGE_DIGEST` і рядки `sha256` — готовий блок для §1.1 без пошуків по логах.
 
