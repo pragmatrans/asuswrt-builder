@@ -49,9 +49,14 @@ on:
         description: "Образ збірки. Пін за digest: тег :4916-gcc13.2 перезаписується при кожній перезбірці, і «той самий образ» через місяць — уже інший компілятор"
         required: false
         default: "ghcr.io/pragmatrans/asuswrt-builder@sha256:223829ff9645ae24c1631964e0d2ce6cd2c4c626bf9875c32d12455c89fae2ca"
+      publish:
+        description: "Опублікувати збірку як GitHub Release (еталон): тег fw-<ref>-<дата>-<sha>, асети не видаляються ніколи. Вимикати для перевірочних збірок"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   SDK_DIR: release/src-rt-5.04behnd.4916
@@ -109,6 +114,7 @@ jobs:
             https://github.com/Asuswrt-Merlin/asuswrt-merlin.ng "$MERLIN_DIR"
           cd "$MERLIN_DIR"
           git log --oneline -1
+          echo "TREE_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
           du -sh . 2>/dev/null || true
 
       # Cherry-pick — тільки якщо дали маніфест. Для гілки rt-be92u-main він зазвичай не потрібен:
@@ -320,6 +326,45 @@ jobs:
           path: ${{ env.WORK_DIR }}/artifacts/*
           if-no-files-found: error
           retention-days: 7
+
+      # Еталон = реліз, а не артефакт прогону. Асети релізу не мають сумарного ліміту (2 ГБ на файл),
+      # не входять у сховище Actions/Packages і не видаляються — на відміну від артефактів (7 днів).
+      - name: Publish release
+        if: ${{ inputs.publish && inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF: ${{ inputs.ref }}
+          MODEL: ${{ inputs.model }}
+          FLAGS: "no_security=${{ inputs.no_security }}, drop_asd=${{ inputs.drop_asd }}"
+        run: |
+          set -euo pipefail
+          python3 - "$WORK_DIR" <<'PY' > RELEASE.md
+          import glob, os, sys, datetime
+          work, env = sys.argv[1], os.environ
+          tpl = open("docs/release-template.md", encoding="utf-8").read()
+          shalines = []
+          for f in sorted(glob.glob(os.path.join(work, "artifacts", "*.sha256"))):
+              shalines.append("- `%s`" % open(f, encoding="utf-8").read().strip())
+          subs = {
+              "REF": env["REF"],
+              "TREE_SHA": env.get("TREE_SHA", "?"),
+              "FLAGS": env["FLAGS"],
+              "IMAGE": env.get("IMAGE_DIGEST", env.get("IMAGE", "?")),
+              "COMMIT": env["GITHUB_SHA"][:7],
+              "DATE": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+              "SHA_LINES": "\n".join(shalines) or "—",
+          }
+          for k, v in subs.items():
+              tpl = tpl.replace("{{%s}}" % k, v)
+          print(tpl)
+          PY
+          TAG="fw-$(printf '%s' "$REF" | tr '/ ' '--')-$(date -u +%Y%m%d)-r${{ github.run_number }}"
+          echo "реліз: $TAG"
+          gh release create "$TAG" \
+            --target "${{ github.sha }}" \
+            --title "RT-BE92U · $REF · AP-ready, без asd/Ark" \
+            --notes-file RELEASE.md \
+            "$WORK_DIR"/artifacts/*
 
       - name: Summary
         run: |
