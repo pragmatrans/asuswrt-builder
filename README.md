@@ -82,9 +82,13 @@ The step order is deliberate:
 1. Fork or push this repo (public — Actions minutes are free).
 2. Actions → `image` → Run workflow (once, ~10–15 min for apt and toolchains).
 3. Actions → `build` → Run workflow → pick `ref`/`model` → Run.
-4. Artifact `RT-BE92U-<ref>` in the run, kept 14 days.
+4. Artifact `RT-BE92U-<ref>` in the run, kept 7 days.
 
 ## Patches
+
+Every change with its rationale (what / why / what it costs / how to verify / how to revert) is in
+`patches/README.md`; the base level and the rules for taking upstream changes are in
+`docs/rt-be92u-notebook.md`. Below — the short version.
 
 `patches/jffs-to-tmp.patch` — move logs from `/jffs` to `/tmp`. The important part is not code but a
 single line in `src-rt/target.mak`: `PSISTLOG=y` in the `HND-96765_BASE` block (line 406). That flag
